@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de Preguntas</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: #222;
+            font-family: Arial, sans-serif;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            position: relative;
+        }
+
+        .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 90%;
+            max-width: 800px;
+            border: 3px solid white;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .side {
+            flex: 1;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .left { background: #f97220; }
+        .right { background: #000; }
+        .middle {
+            flex: 1.5;
+            background: #444;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        img {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            margin-bottom: 10px;
+            border: 3px solid white;
+        }
+
+        .score {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        button {
+            margin-top: 10px;
+            padding: 12px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            border: none;
+            color: white;
+            border-radius: 5px;
+            transition: 0.3s;
+        }
+
+        .left button {
+            background-color: black;
+        }
+
+        .right button {
+            background-color: white;
+            color: black;
+        }
+
+        .left button:hover {
+            background-color: #333;
+        }
+
+        .right button:hover {
+            background-color: #ccc;
+        }
+
+        .reset-btn {
+            background-color: #ff6773;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        .reset-btn:hover {
+            background-color: #f94a5a;
+            transform: scale(1.05);
+        }
+
+        .questions {
+            width: 90%;
+            max-width: 800px;
+            background: #333;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 10px;
+        }
+
+        h1, h2 {
+            margin: 0;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .side, .middle {
+                width: 100%;
+                padding: 20px;
+            }
+
+            .questions {
+                order: 3;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Reproductor de música en bucle -->
+    <audio id="background-music" loop autoplay>
+        <source src="re7.mp3" type="audio/mp3">
+        Tu navegador no soporta el elemento de audio.
+    </audio>
+
+    <div class="container">
+        <div class="side left">
+            <img src="img1.jpeg" alt="Daron">
+            <h2>Daron</h2>
+            <p class="score" id="score-daron">0</p>
+            <button id="btn-daron">Aumentar</button>
+        </div>
+
+        <div class="middle">
+            <h1>Juego de Preguntas</h1>
+            <p>Responde cada pregunta y gana puntos.</p>
+            <button class="reset-btn" id="reset-btn">Reiniciar Puntajes</button>
+        </div>
+
+        <div class="side right">
+            <img src="img2.jpeg" alt="Nanny">
+            <h2>Nanny</h2>
+            <p class="score" id="score-nanny">0</p>
+            <button id="btn-nanny">Aumentar</button>
+        </div>
+    </div>
+
+    <div class="questions">
+        <h2>Preguntas</h2>
+        <div id="question-list"></div>
+    </div>
+
+    <script type="module">
+        // Importar las funciones necesarias desde el SDK de Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        // Configuración de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDvDiS99CnRpux6kAwDNwm_BjLY8j62RD0",
+            authDomain: "nannyvdq.firebaseapp.com",
+            databaseURL: "https://nannyvdq-default-rtdb.firebaseio.com",
+            projectId: "nannyvdq",
+            storageBucket: "nannyvdq.firebasestorage.app",
+            messagingSenderId: "1080645680597",
+            appId: "1:1080645680597:web:0ce1463c0c853ac052915c"
+        };
+
+        // Inicializar Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Actualizar la interfaz de usuario con la puntuación de cada jugador
+        function updateScoreUI(player, value) {
+            document.getElementById(`score-${player.toLowerCase()}`).innerText = value;
+        }
+
+        // Función para aumentar el puntaje en Firebase
+        function incrementScore(player) {
+            const scoreRef = ref(db, `scores/${player}`);
+            get(scoreRef).then(snapshot => {
+                let score = snapshot.val() || 0;
+                if (score < 14) { // Limitar el puntaje máximo a 14
+                    score += 1;
+                    set(scoreRef, score); // Actualizar el puntaje en Firebase
+                }
+            });
+        }
+
+        // Función para reiniciar el puntaje de ambos jugadores
+        function resetScores() {
+            set(ref(db, 'scores/Daron'), 0);  // Reiniciar puntaje de Daron
+            set(ref(db, 'scores/Nanny'), 0);  // Reiniciar puntaje de Nanny
+        }
+
+        // Función para vincular el evento de incremento a los botones
+        function setupButtons() {
+            const daronBtn = document.getElementById("btn-daron");
+            const nannyBtn = document.getElementById("btn-nanny");
+            const resetBtn = document.getElementById("reset-btn");
+
+            daronBtn.addEventListener("click", () => incrementScore('Daron'));
+            nannyBtn.addEventListener("click", () => incrementScore('Nanny'));
+            resetBtn.addEventListener("click", resetScores); // Evento para el botón de reiniciar
+        }
+
+        // Escuchar cambios en los puntajes en tiempo real
+        onValue(ref(db, 'scores/Daron'), snapshot => {
+            updateScoreUI('Daron', snapshot.val() || 0);
+        });
+
+        onValue(ref(db, 'scores/Nanny'), snapshot => {
+            updateScoreUI('Nanny', snapshot.val() || 0);
+        });
+
+        // Lista de preguntas
+        const questions = [
+            "¿Cuál es tu comida favorita?",
+            "¿Cuál es tu serie favorita?",
+            "¿Cuál es tu estación del año favorita?",
+            "¿Cuál es tu bebida favorita?",
+            "¿Qué pasatiempo disfrutas más?",
+            "¿Qué olor te recuerda a tu infancia?",
+            "¿Cuál es tu ciudad o país favorito?",
+            "¿Cuál es tu prenda de vestir favorita?",
+            "¿Qué canción te hace llorar?",
+            "¿Cuál es tu aroma favorito?",
+            "¿Qué película podrías ver mil veces?",
+            "¿Cuál es tu animal favorito?",
+            "¿Cuál es tu dulce o postre favorito?",
+            "¿Qué color describe tu personalidad?"
+        ];
+
+        document.addEventListener("DOMContentLoaded", function() {
+            const questionList = document.getElementById("question-list");
+            questions.forEach((q, i) => {
+                const p = document.createElement("p");
+                p.innerText = `${i + 1}. ${q}`;
+                questionList.appendChild(p);
+            });
+
+            // Configurar los botones
+            setupButtons();
+        });
+    </script>
+
+</body>
+</html>
